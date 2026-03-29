@@ -39,9 +39,9 @@ docker build -t nat189/napat-karaoke .
 docker run -it --name Napat-Karaoke -p 3030:3030 nat189/napat-karaoke
 
 🌐 การเข้าใช้งาน
-หน้าจอทีวี: http://your-ip:3000/display.html
+หน้าจอทีวี: http://your-ip:3030/display.html
 
-รีโมทมือถือ: http://your-ip:3000/controller.html (หรือสแกน QR Code จากหน้าจอทีวี)
+รีโมทมือถือ: http://your-ip:3030/controller.html (หรือสแกน QR Code จากหน้าจอทีวี)
 
 พัฒนาโดย: Natthapat Panchon
 
