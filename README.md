@@ -35,8 +35,8 @@ git clone https://github.com/nat189/napat-karaoke.git napat-karaoke
 สั่ง Build ใหม่
 Bash
 docker build -t nat189/napat-karaoke .
-
-
+#startup
+docker run -it --name Napat-Karaoke -p 3030:3030 nat189/napat-karaoke
 
 🌐 การเข้าใช้งาน
 หน้าจอทีวี: http://your-ip:3000/display.html
