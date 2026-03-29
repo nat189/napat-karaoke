@@ -153,4 +153,4 @@ io.on('connection', (socket) => {
     });
 });
 
-http.listen(3000, () => console.log('🚀 Karaoke Server: Running on Port 3000'));
+http.listen(3030, () => console.log('🚀 Karaoke Server: Running on Port 3030'));
