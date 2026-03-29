@@ -21,7 +21,7 @@ cd napat-karaoke
 
 3. ติดตั้ง Library ที่จำเป็น
 Bash
-npm install
+npm install express socket.io yt-search
 4. เริ่มใช้งาน
 Bash
 # รันปกติ
