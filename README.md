@@ -26,9 +26,18 @@ npm install express socket.io yt-search
 Bash
 # รันปกติ
 node server.js
-
 # หรือรันผ่าน PM2 (แนะนำสำหรับ Unraid)
 pm2 start server.js --name "karaoke"
+
+ตืดตั้งผ่าน docker
+cd /mnt/cache/appdata/
+git clone https://github.com/nat189/napat-karaoke.git napat-karaoke
+สั่ง Build ใหม่
+Bash
+docker build -t nat189/napat-karaoke .
+
+
+
 🌐 การเข้าใช้งาน
 หน้าจอทีวี: http://your-ip:3000/display.html
 
