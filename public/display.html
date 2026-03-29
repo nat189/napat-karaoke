@@ -50,7 +50,7 @@
             document.getElementById('room-id').innerText = "ห้อง: " + currentRoom;
             document.getElementById('qrcode').innerHTML = "";
             new QRCode(document.getElementById("qrcode"), { 
-                text: `https://karaoke.napat.org/controller.html?room=${currentRoom}&p=${data.pass}&tvId=${socket.id}`, 
+                text: `http://192.168.0.154:3030/controller.html?room=${currentRoom}&p=${data.pass}&tvId=${socket.id}`, 
                 width: 220, height: 220 
             });
         });
