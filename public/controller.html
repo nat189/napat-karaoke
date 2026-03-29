@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <title>Napat Remote Pro</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        :root { --red: #ff2d55; --orange: #ff5e3a; --blue: #007aff; --green: #32d74b; --card: #1e1e1e; }
+        body { background:#121212; color:white; font-family:sans-serif; padding:15px; margin:0; padding-bottom:120px; }
+        .header { display:flex; justify-content:space-between; align-items:center; background:var(--card); padding:15px; border-radius:18px; border:1px solid #333; margin-bottom:15px; }
+        .btn-skip { width:100%; padding:18px; background:linear-gradient(to right, var(--red), var(--orange)); border:none; color:white; border-radius:15px; font-weight:bold; font-size:18px; margin-bottom:10px; box-shadow:0 4px 15px rgba(255, 45, 85, 0.4); }
+        .control-bar { margin-bottom: 20px; }
+        .btn-pause { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid #444; color: white; font-weight: bold; font-size: 14px; background: #5856d6; }
+        .search-box { display:flex; gap:8px; margin-bottom:20px; }
+        input { flex:1; padding:14px; border-radius:12px; border:1px solid #444; background:#222; color:white; font-size:16px; outline:none; }
+        .btn-search { padding:0 20px; background:var(--blue); border:none; color:white; border-radius:12px; font-weight:bold; }
+        .queue-item { background:var(--card); padding:12px; border-radius:15px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; border:1px solid #333; }
+        .playing { border: 1px solid var(--green); }
+        .btn-move { background:#333; color:var(--green); border:1px solid #444; width:45px; height:45px; border-radius:10px; font-size:18px; font-weight:bold; }
+        .btn-retry { background:var(--green); color:black; border:none; padding:8px 12px; border-radius:8px; font-size:11px; font-weight:bold; }
+        .song-item { background:var(--card); padding:10px; border-radius:12px; margin-bottom:8px; display:flex; align-items:center; gap:10px; }
+        .song-item img { width:50px; height:35px; border-radius:5px; }
+    </style>
+</head>
+<body>
+    <div class="header"><h2 id="room-name" style="margin:0; color:var(--red);">ห้อง: -</h2><span style="font-size:12px; color:#888;">Napat Karaoke</span></div>
+    
+    <button class="btn-skip" onclick="socket.emit('skip_song', roomId)">ข้ามเพลง ❯❯</button>
+
+    <div class="control-bar">
+        <button id="pause-btn" class="btn-pause" onclick="togglePlay()">⏸️ หยุดชั่วคราว</button>
+    </div>
+
+    <div class="search-box"><input type="text" id="search-input" placeholder="ค้นหาเพลง..."><button class="btn-search" onclick="search()">ค้นหา</button></div>
+    <div id="results"></div>
+    <div style="color:var(--green); font-weight:bold; margin-bottom:10px;">คิวเพลง (กดค้าง 3 วิเพื่อลบ)</div>
+    <div id="queue-list"></div>
+
+    <script>
+        const socket = io({ path: '/socket.io', transports: ['websocket', 'polling'] });
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = urlParams.get('room') || urlParams.get('r');
+        let isPaused = false, pressTimer;
+
+        socket.on('connect', () => { 
+            document.getElementById('room-name').innerText = "ห้อง: " + (roomId || "...");
+            if(roomId) { socket.emit('join_room', roomId); socket.emit('force_retry_play', roomId); }
+        });
+
+        function togglePlay() {
+            isPaused = !isPaused;
+            socket.emit('control_video', { roomId, action: isPaused ? 'pause' : 'resume' });
+            document.getElementById('pause-btn').innerText = isPaused ? "▶️ เล่นต่อ" : "⏸️ หยุดชั่วคราว";
+        }
+
+        async function search() {
+            const q = document.getElementById('search-input').value; if(!q) return;
+            const res = await fetch(`/search?q=${encodeURIComponent(q)}`);
+            const songs = await res.json();
+            document.getElementById('results').innerHTML = songs.map(s => `<div class="song-item"><img src="${s.thumbnails}"><div style="flex:1; font-size:14px;">${s.title}</div><button style="background:var(--blue); color:white; border:none; padding:8px 15px; border-radius:8px;" onclick='addSong(${JSON.stringify(s).replace(/'/g,"&apos;")})'>จอง</button></div>`).join('');
+        }
+
+        function addSong(song) { socket.emit('add_to_queue', { roomId, song }); document.getElementById('results').innerHTML = ""; document.getElementById('search-input').value = ""; }
+        function moveSong(index, dir) { socket.emit('move_song', { roomId, index, direction:dir }); }
+        function delSong(i, t) { if(i > 0 && confirm(`ลบเพลง "${t}"?`)) socket.emit('delete_song', { roomId, index: i }); }
+
+        socket.on('queue_update', (q) => {
+            const list = document.getElementById('queue-list');
+            list.innerHTML = q.map((s, i) => `
+                <div class="queue-item ${i===0?'playing':''}" ontouchstart="pressTimer=setTimeout(()=>delSong(${i},'${s.title.replace(/'/g,"")}'), 3000)" ontouchend="clearTimeout(pressTimer)">
+                    <div style="flex:1;">
+                        <span style="color:${i===0?'#32d74b':'#888'}; font-size:11px; display:block;">${i===0?'กำลังเล่น':'คิวที่ '+(i+1)}</span>
+                        <span style="font-size:14px;">${s.title}</span>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        ${i === 0 ? `<button class="btn-retry" onclick="socket.emit('force_retry_play', roomId)">RETRY</button>` : ''}
+                        ${i > 0 ? `<button class="btn-move" onclick="event.stopPropagation(); moveSong(${i}, 'up')">▲</button>` : ''}
+                        ${i > 0 && i < q.length - 1 ? `<button class="btn-move" onclick="event.stopPropagation(); moveSong(${i}, 'down')">▼</button>` : ''}
+                    </div>
+                </div>`).join('');
+        });
+    </script>
+</body>
+</html>
