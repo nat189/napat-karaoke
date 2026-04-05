@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Napat Karaoke TV - Perfect Timing</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body { margin:0; background:#000; color:#fff; font-family:sans-serif; overflow:hidden; width:100vw; height:100vh; cursor: none; }
+        #bg-layer { position:fixed; top:0; left:0; width:100vw; height:100vh; background: #111 linear-gradient(to bottom, #111, #222); background-size: cover; z-index:0; transition: 2.5s; }
+        #player-wrapper { position:relative; width:100vw; height:100vh; z-index:5; opacity:0; transition: 1s; }
+        #player { width: 100%; height: 100%; pointer-events: none; }
+        #start-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; }
+        .btn-start { padding:25px 60px; font-size:35px; background:linear-gradient(45deg, #ff2d55, #ff512f); color:white; border-radius:100px; border:none; box-shadow:0 10px 40px rgba(255,45,85,0.4); font-weight:bold; }
+        #score-overlay { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.9); padding:50px 80px; border-radius:40px; text-align:center; z-index:1000; border:4px solid #ff2d55; display:none; min-width: 400px; }
+        .score-num { font-size:150px; font-weight:bold; color:#ff2d55; }
+        #pair-ui-overlay { position:fixed; bottom:5%; right:5%; background:rgba(0,0,0,0.8); padding:25px; border-radius:25px; z-index:100; text-align:center; opacity: 1; transition: 0.8s; }
+        #qrcode { background:#fff; padding:10px; border-radius:10px; display:inline-block; }
+        #queue-box { position:fixed; top:5%; right:5%; width:350px; background:rgba(0,0,0,0.8); padding:20px; border-radius:20px; z-index:200; opacity: 0; visibility: hidden; transition: 0.8s; }
+    </style>
+</head>
+<body>
+    <div id="start-overlay" onclick="initApp()">
+        <button class="btn-start">🎤 เริ่มความมันส์!</button>
+    </div>
+    <div id="bg-layer"></div>
+    <div id="player-wrapper"><div id="player"></div></div>
+    
+    <div id="score-overlay">
+        <div style="font-size:30px; color:#0f0;">Singing Score!</div>
+        <div class="score-num" id="score-val">0</div>
+        <div style="font-size:40px; font-weight:bold;" id="score-msg">สุดยอด!</div>
+    </div>
+
+    <div id="pair-ui-overlay">
+        <div id="room-id" style="font-size:32px; color:#ff2d55; font-weight:bold; margin-bottom:10px;">ห้อง: ...</div>
+        <div id="qrcode"></div>
+        <p style="margin-top:10px; font-weight:bold;">สแกนเพื่อจองเพลง 🎤</p>
+    </div>
+
+    <div id="queue-box"><div id="items" style="font-size:18px;"></div></div>
+
+    <script>
+        const socket = io({ path: '/socket.io', transports: ['websocket'] });
+        let player, currentRoom = "", isAppReady = false, isEnding = false, uiTimer;
+
+        function initApp() {
+            document.getElementById('start-overlay').style.display = 'none';
+            isAppReady = true;
+            updateBackground();
+        }
+
+        function updateBackground() {
+            const imageUrl = `https://picsum.photos/1920/1080?nature,party&sig=${Math.random()}`;
+            document.getElementById('bg-layer').style.backgroundImage = `url('${imageUrl}')`;
+        }
+
+        socket.on('connect', () => {
+            socket.emit('tv_init', { savedRoom: localStorage.getItem('k_room') });
+        });
+
+        socket.on('tv_assigned', (data) => {
+            currentRoom = data.roomId;
+            localStorage.setItem('k_room', currentRoom);
+            document.getElementById('room-id').innerText = "ห้อง: " + currentRoom;
+            document.getElementById('qrcode').innerHTML = "";
+            new QRCode(document.getElementById("qrcode"), {
+                text: `https://oke.napat.org/controller.html?room=${currentRoom}`,
+                width: 180, height: 180
+            });
+        });
+
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+                height:'100%', width:'100%',
+                playerVars:{'autoplay':1, 'controls':0, 'modestbranding':1, 'rel':0, 'origin': window.location.origin},
+                events: {
+                    'onStateChange': (e) => {
+                        if(e.data === YT.PlayerState.PLAYING) { 
+                            isEnding = false;
+                            document.getElementById('player-wrapper').style.opacity = "1";
+                            
+                            // ✨ เริ่มเพลงถัดไป: โชว์ QR และ คิวเพลงค้างไว้ 10 วินาที
+                            showUI();
+                            if(uiTimer) clearTimeout(uiTimer);
+                            uiTimer = setTimeout(() => {
+                                hideUI();
+                            }, 10000); // 10 วินาทีตามสั่งครับ
+                        }
+                        if(e.data === YT.PlayerState.ENDED && !isEnding) { 
+                            isEnding = true;
+                            showScore(); 
+                        }
+                    }
+                }
+            });
+        }
+
+        function showUI() {
+            document.getElementById('pair-ui-overlay').style.opacity = "1";
+            const qBox = document.getElementById('queue-box');
+            if (document.getElementById('items').innerHTML !== "") {
+                qBox.style.opacity = "1";
+                qBox.style.visibility = "visible";
+            }
+        }
+
+        function hideUI() {
+            document.getElementById('pair-ui-overlay').style.opacity = "0";
+            document.getElementById('queue-box').style.opacity = "0";
+            document.getElementById('queue-box').style.visibility = "hidden";
+        }
+
+        socket.on('play', (s) => {
+            if(!isAppReady || !s) {
+                document.getElementById('player-wrapper').style.opacity = "0";
+                showUI();
+                return;
+            }
+            player.loadVideoById(s.videoId);
+        });
+
+        socket.on('control_video', (data) => {
+            if (data.action === 'pause') { player.pauseVideo(); showUI(); }
+            else { player.playVideo(); if(!uiTimer) hideUI(); }
+        });
+
+        function showScore() {
+            const score = Math.floor(Math.random() * 21) + 80;
+            document.getElementById('score-val').innerText = score;
+            document.getElementById('score-overlay').style.display = 'block';
+            document.getElementById('player-wrapper').style.opacity = "0";
+            updateBackground();
+            
+            // ✨ คะแนนโชว์แค่ 5 วินาทีพอครับ
+            setTimeout(() => {
+                document.getElementById('score-overlay').style.display = 'none';
+                socket.emit('song_ended', currentRoom);
+            }, 5000); 
+        }
+
+        socket.on('queue_update', (q) => {
+            document.getElementById('items').innerHTML = q.slice(1, 4).map((s,i)=>`<div>${i+1}. ${s.title}</div>`).join('');
+            // ถ้าอยู่นอกโหมดเล่นเพลง ให้โชว์ UI ตลอด
+            if (!player || player.getPlayerState() !== YT.PlayerState.PLAYING) {
+                showUI();
+            }
+        });
+
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        document.head.appendChild(tag);
+    </script>
+</body>
+</html>
