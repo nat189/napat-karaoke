@@ -40,6 +40,21 @@ docker pull ghcr.io/nat189/napat-karaoke:latest
 #startup
 docker run -it --name Napat-Karaoke -p 3030:3030 nat189/napat-karaoke
 
+docker run
+  -d
+  --name='karaoke'
+  --net='bridge'
+  --pids-limit 2048
+  -e TZ="Asia/Bangkok"
+  -e HOST_OS="Unraid"
+  -e HOST_HOSTNAME="Tower"
+  -e HOST_CONTAINERNAME="karaoke"
+  -l net.unraid.docker.managed=dockerman
+  -l net.unraid.docker.webui='http://192.168.0.106:3030/display.html'
+  -l net.unraid.docker.icon='https://github.com/nat189/public-assets/blob/master/icon.png'
+  -p '3030:3030/tcp'
+  -v '/mnt/cache/appdata/karaoke/':'/app':'rw' 'ghcr.io/nat189/napat-karaoke:latest'
+
 🌐 การเข้าใช้งาน
 หน้าจอทีวี: http://your-ip:3030/display.html
 
