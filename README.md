@@ -35,6 +35,8 @@ git clone https://github.com/nat189/napat-karaoke.git napat-karaoke
 สั่ง Build ใหม่
 Bash
 docker build -t nat189/napat-karaoke .
+หรือ
+docker pull ghcr.io/nat189/napat-karaoke:latest
 #startup
 docker run -it --name Napat-Karaoke -p 3030:3030 nat189/napat-karaoke
 
